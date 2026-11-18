@@ -1,410 +1,242 @@
-// MAST5112 - Part 2 - Chef Menu Manager
+// MAST5112 - Final POE
 // Qinisile Mbambo - ST10482802
-
-import React, { useState } from 'react';
-import {
-  View, Text, TextInput, TouchableOpacity, ScrollView,
-  FlatList, Alert, StatusBar, StyleSheet, KeyboardAvoidingView, Platform
-} from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Picker } from '@react-native-picker/picker';
+import { useState } from 'react';
+import {
+  Alert,
+  FlatList,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 
-const Stack = createNativeStackNavigator();
+export default function App() {
+  const [currentScreen, setCurrentScreen] = useState('Home');
+  const [menuItems, setMenuItems] = useState([]);
+  const [editingItem, setEditingItem] = useState(null);
 
-// ---- HOME SCREEN ----
-// Just the landing page with the two main buttons
-function HomeScreen({ navigation, menuItems }) {
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+  // --- HOME SCREEN ---
+  if (currentScreen === 'Home') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.center}>
+          <Text style={styles.icon}>🍽️</Text>
+          <Text style={styles.title}>Menu Manager</Text>
+          <TouchableOpacity style={styles.btnPrimary} onPress={() => { setEditingItem(null); setCurrentScreen('AddEdit'); }}>
+            <Text style={styles.btnText}>+ Add New Item</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.btnSecondary} onPress={() => setCurrentScreen('MenuList')}>
+            <Text style={styles.btnText}>View All Items</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-      <Text style={styles.title}>Chef's Menu Manager</Text>
-      <Text style={styles.subtitle}>Manage your restaurant menu easily</Text>
+  // --- ADD / EDIT SCREEN ---
+  if (currentScreen === 'AddEdit') {
+    return (
+      <AddEditScreen 
+        editingItem={editingItem} 
+        menuItems={menuItems} 
+        setMenuItems={setMenuItems} 
+        goBack={() => setCurrentScreen('MenuList')} 
+      />
+    );
+  }
 
-      {/* Only show this if there are items, otherwise it looks weird */}
-      {menuItems.length > 0 && (
-        <Text style={styles.countText}>
-          {menuItems.length} {menuItems.length === 1 ? 'dish' : 'dishes'} on the menu
-        </Text>
-      )}
+  // --- MENU LIST SCREEN ---
+  if (currentScreen === 'MenuList') {
+    return (
+      <MenuListScreen 
+        menuItems={menuItems} 
+        setMenuItems={setMenuItems} 
+        goHome={() => setCurrentScreen('Home')} 
+        goEdit={(item) => { setEditingItem(item); setCurrentScreen('AddEdit'); }} 
+      />
+    );
+  }
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('AddItem')}>
-        <Text style={styles.buttonText}>+ Add New Item</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, styles.orangeBtn]}
-        onPress={() => navigation.navigate('MenuList')}>
-        <Text style={styles.buttonText}>View All Items</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  return null;
 }
 
-// ---- ADD ITEM SCREEN ----
-// This is where the chef types in the new dish info
-function AddItemScreen({ navigation, addMenuItem }) {
-  // form state - keep it all together
-  const [dishName, setDishName] = useState('');
-  const [description, setDescription] = useState('');
-  const [course, setCourse] = useState('Starter');
-  const [price, setPrice] = useState('');
-  const [errors, setErrors] = useState({});
+// ==========================================
+// SCREEN COMPONENTS (Below the main App)
+// ==========================================
 
-  // Validation - checks everything before saving
-  // Made the error messages clear so the chef knows what went wrong
-  const validate = () => {
-    let newErrors = {};
-    let isValid = true;
-
-    // dish name check
-    if (!dishName.trim()) {
-      newErrors.dishName = 'Please enter the dish name';
-      isValid = false;
-    } else if (dishName.trim().length < 2) {
-      newErrors.dishName = 'Dish name must be at least 2 characters';
-      isValid = false;
-    }
-
-    // description check
-    if (!description.trim()) {
-      newErrors.description = 'Please enter a description';
-      isValid = false;
-    } else if (description.trim().length < 5) {
-      newErrors.description = 'Description must be at least 5 characters';
-      isValid = false;
-    }
-
-    // price check - has to be a number and greater than 0
-    if (!price.trim()) {
-      newErrors.price = 'Please enter a price';
-      isValid = false;
-    } else if (isNaN(price) || parseFloat(price) <= 0) {
-      newErrors.price = 'Please enter a valid price greater than 0';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
+function AddEditScreen({ editingItem, menuItems, setMenuItems, goBack }) {
+  const [dishName, setDishName] = useState(editingItem ? editingItem.dishName : '');
+  const [description, setDescription] = useState(editingItem ? editingItem.description : '');
+  const [course, setCourse] = useState(editingItem ? editingItem.course : 'Starter');
+  const [price, setPrice] = useState(editingItem ? editingItem.price.toString() : '');
 
   const handleSave = () => {
-    if (validate()) {
-      // build the item object
-      const newItem = {
-        id: Date.now().toString(),
-        name: dishName.trim(),
-        description: description.trim(),
-        course: course,
-        price: parseFloat(price),
-      };
-
-      addMenuItem(newItem);
-
-      // show success message with options
-      Alert.alert(
-        'Success!',
-        `"${dishName}" has been added to the menu!`,
-        [
-          {
-            text: 'Add Another',
-            onPress: () => {
-              // clear the form so they can add another one quickly
-              setDishName('');
-              setDescription('');
-              setCourse('Starter');
-              setPrice('');
-              setErrors({});
-            },
-          },
-          {
-            text: 'View Menu',
-            onPress: () => navigation.navigate('MenuList'),
-          },
-        ]
-      );
+    if (!dishName.trim() || !description.trim() || !price.trim()) {
+      Alert.alert('Validation Error', 'Please fill in all fields.');
+      return;
     }
+    if (isNaN(price) || Number(price) <= 0) {
+      Alert.alert('Validation Error', 'Please enter a valid price greater than 0.');
+      return;
+    }
+
+    const itemData = {
+      id: editingItem ? editingItem.id : Date.now().toString(),
+      dishName: dishName.trim(),
+      description: description.trim(),
+      course,
+      price: Number(price),
+    };
+
+    if (editingItem) {
+      setMenuItems(menuItems.map((i) => (i.id === editingItem.id ? itemData : i)));
+      Alert.alert('Success', 'Dish updated successfully!');
+    } else {
+      setMenuItems([...menuItems, itemData]);
+      Alert.alert('Success', 'Dish added successfully!');
+    }
+    goBack();
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={{ flex: 1 }}>
-      <ScrollView style={styles.container}>
-        <Text style={styles.title}>Add New Dish</Text>
-
-        {/* Dish Name */}
-        <Text style={styles.label}>Dish Name *</Text>
-        <TextInput
-          style={[styles.input, errors.dishName && styles.inputError]}
-          placeholder="Enter dish name"
-          value={dishName}
-          onChangeText={(text) => {
-            setDishName(text);
-            // clear error as soon as they start typing
-            if (errors.dishName) setErrors({ ...errors, dishName: null });
-          }}
-        />
-        {errors.dishName && <Text style={styles.errorText}>{errors.dishName}</Text>}
-
-        {/* Description */}
-        <Text style={styles.label}>Description *</Text>
-        <TextInput
-          style={[styles.input, styles.multiline, errors.description && styles.inputError]}
-          placeholder="Enter description"
-          value={description}
-          onChangeText={(text) => {
-            setDescription(text);
-            if (errors.description) setErrors({ ...errors, description: null });
-          }}
-          multiline
-        />
-        {errors.description && <Text style={styles.errorText}>{errors.description}</Text>}
-
-        {/* Course Picker */}
-        <Text style={styles.label}>Course *</Text>
-        <View style={[styles.input, styles.pickerWrapper]}>
-          <Picker selectedValue={course} onValueChange={setCourse}>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={goBack}><Text style={styles.backBtn}>←</Text></TouchableOpacity>
+        <Text style={styles.headerTitle}>{editingItem ? 'Edit Dish' : 'Add New Dish'}</Text>
+      </View>
+      <ScrollView style={styles.formContainer}>
+        <Text style={styles.label}>Dish Name</Text>
+        <TextInput style={styles.input} value={dishName} onChangeText={setDishName} placeholder="Enter dish name" />
+        <Text style={styles.label}>Description</Text>
+        <TextInput style={[styles.input, styles.textArea]} value={description} onChangeText={setDescription} placeholder="Enter description" multiline />
+        <Text style={styles.label}>Course</Text>
+        <View style={styles.pickerBox}>
+          <Picker selectedValue={course} onValueChange={(val) => setCourse(val)}>
             <Picker.Item label="Starter" value="Starter" />
             <Picker.Item label="Main Course" value="Main Course" />
             <Picker.Item label="Dessert" value="Dessert" />
           </Picker>
         </View>
-
-        {/* Price */}
-        <Text style={styles.label}>Price (R) *</Text>
-        <TextInput
-          style={[styles.input, errors.price && styles.inputError]}
-          placeholder="Enter price"
-          value={price}
-          onChangeText={(text) => {
-            setPrice(text);
-            if (errors.price) setErrors({ ...errors, price: null });
-          }}
-          keyboardType="numeric"
-        />
-        {errors.price && <Text style={styles.errorText}>{errors.price}</Text>}
-
-        {/* Save button */}
-        <TouchableOpacity style={[styles.button, styles.greenBtn]} onPress={handleSave}>
-          <Text style={styles.buttonText}>Save Dish</Text>
+        <Text style={styles.label}>Price (R)</Text>
+        <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="Enter price" keyboardType="numeric" />
+        <TouchableOpacity style={[styles.btnPrimary, { marginTop: 30 }]} onPress={handleSave}>
+          <Text style={styles.btnText}>Save Dish</Text>
         </TouchableOpacity>
       </ScrollView>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
-// ---- MENU LIST SCREEN ----
-// Shows all the items the chef has added
-function MenuListScreen({ navigation, menuItems }) {
-  // little helper so each course gets its own colour
-  const getCourseColor = (c) => {
-    if (c === 'Starter') return '#FF9800';
-    if (c === 'Main Course') return '#4CAF50';
-    return '#9C27B0'; // dessert
+function MenuListScreen({ menuItems, setMenuItems, goHome, goEdit }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterCourse, setFilterCourse] = useState('All');
+
+  const totalItems = menuItems.length;
+  const avgPrice = totalItems > 0 ? (menuItems.reduce((sum, item) => sum + item.price, 0) / totalItems).toFixed(2) : '0.00';
+  const starters = menuItems.filter((i) => i.course === 'Starter').length;
+  const mains = menuItems.filter((i) => i.course === 'Main Course').length;
+  const desserts = menuItems.filter((i) => i.course === 'Dessert').length;
+
+  const filteredItems = menuItems.filter((item) => {
+    const matchesSearch = item.dishName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCourse = filterCourse === 'All' || item.course === filterCourse;
+    return matchesSearch && matchesCourse;
+  });
+
+  const handleDelete = (id) => {
+    Alert.alert('Confirm Delete', 'Are you sure you want to remove this dish?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => setMenuItems(menuItems.filter((i) => i.id !== id)) },
+    ]);
   };
 
-  // if there's nothing to show, display an empty state
-  if (menuItems.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Text style={{ fontSize: 60 }}>🍽️</Text>
-        <Text style={styles.emptyText}>
-          No menu items yet.{'\n'}Start by adding your first dish!
-        </Text>
-        <TouchableOpacity
-          style={[styles.button, { marginTop: 30 }]}
-          onPress={() => navigation.navigate('AddItem')}>
-          <Text style={styles.buttonText}>+ Add New Item</Text>
-        </TouchableOpacity>
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={goHome}><Text style={styles.backBtn}>←</Text></TouchableOpacity>
+        <Text style={styles.headerTitle}>All Menu Items</Text>
       </View>
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>All Menu Items</Text>
-      <Text style={styles.subtitle}>
-        {menuItems.length} {menuItems.length === 1 ? 'dish' : 'dishes'} on the menu
-      </Text>
-
-      <FlatList
-        data={menuItems}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardDesc}>{item.description}</Text>
-
-            <View style={styles.cardFooter}>
-              <View style={[styles.tag, { backgroundColor: getCourseColor(item.course) }]}>
-                <Text style={styles.tagText}>{item.course}</Text>
+      <View style={styles.statsBox}>
+        <Text style={styles.statsTitle}>Menu Overview</Text>
+        <Text style={styles.statsText}>Total: {totalItems} | Avg: R{avgPrice}</Text>
+        <Text style={styles.statsText}>Starters: {starters} | Mains: {mains} | Desserts: {desserts}</Text>
+      </View>
+      <View style={styles.searchRow}>
+        <TextInput style={styles.searchInput} placeholder="Search..." value={searchQuery} onChangeText={setSearchQuery} />
+        <View style={styles.filterPicker}>
+          <Picker selectedValue={filterCourse} onValueChange={(val) => setFilterCourse(val)}>
+            <Picker.Item label="All" value="All" />
+            <Picker.Item label="Starters" value="Starter" />
+            <Picker.Item label="Mains" value="Main Course" />
+            <Picker.Item label="Desserts" value="Dessert" />
+          </Picker>
+        </View>
+      </View>
+      {filteredItems.length === 0 ? (
+        <View style={styles.center}><Text style={styles.emptyText}>No menu items found.</Text></View>
+      ) : (
+        <FlatList
+          data={filteredItems}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.dishName}</Text>
+                <Text style={styles.cardPrice}>R {Number(item.price).toFixed(2)}</Text>
               </View>
-              <Text style={styles.price}>R{item.price.toFixed(2)}</Text>
+              <Text style={styles.cardDesc}>{item.description}</Text>
+              <Text style={styles.cardCourse}>{item.course}</Text>
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.editBtn} onPress={() => goEdit(item)}>
+                  <Text style={styles.btnText}>Edit</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item.id)}>
+                  <Text style={styles.btnText}>Delete</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
-        )}
-      />
-    </View>
+          )}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
-// ---- MAIN APP ----
-// Holds the menuItems state and sets up navigation
-export default function App() {
-  const [menuItems, setMenuItems] = useState([]);
-
-  // Add a new item to the list
-  const addMenuItem = (item) => {
-    setMenuItems((prev) => [...prev, item]);
-  };
-
-  return (
-    <NavigationContainer>
-      <Stack.Navigator
-        screenOptions={{
-          headerStyle: { backgroundColor: '#2196F3' },
-          headerTintColor: '#fff',
-        }}>
-        <Stack.Screen name="Home" options={{ title: 'Menu Manager' }}>
-          {(props) => <HomeScreen {...props} menuItems={menuItems} />}
-        </Stack.Screen>
-
-        <Stack.Screen name="AddItem" options={{ title: 'Add New Dish' }}>
-          {(props) => <AddItemScreen {...props} addMenuItem={addMenuItem} />}
-        </Stack.Screen>
-
-        <Stack.Screen name="MenuList" options={{ title: 'All Menu Items' }}>
-          {(props) => <MenuListScreen {...props} menuItems={menuItems} />}
-        </Stack.Screen>
-      </Stack.Navigator>
-    </NavigationContainer>
-  );
-}
-
-// ---- STYLES ----
+// --- STYLES ---
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 30,
-  },
-  countText: {
-    textAlign: 'center',
-    color: '#666',
-    marginBottom: 20,
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#2196F3',
-    padding: 15,
-    borderRadius: 10,
-    marginVertical: 10,
-    alignItems: 'center',
-  },
-  orangeBtn: {
-    backgroundColor: '#FF9800',
-  },
-  greenBtn: {
-    backgroundColor: '#4CAF50',
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#555',
-    marginBottom: 5,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  multiline: {
-    height: 100,
-    textAlignVertical: 'top',
-  },
-  pickerWrapper: {
-    padding: 0,
-  },
-  inputError: {
-    borderColor: '#F44336',
-  },
-  errorText: {
-    color: '#F44336',
-    fontSize: 14,
-    marginBottom: 10,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 15,
-    marginVertical: 8,
-    elevation: 3,
-  },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
-  cardDesc: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 15,
-  },
-  tagText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  price: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 20,
-  },
+  container: { flex: 1, backgroundColor: '#f5f5f5' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  icon: { fontSize: 60, marginBottom: 10 },
+  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 40, color: '#333' },
+  btnPrimary: { backgroundColor: '#2196F3', padding: 15, borderRadius: 8, width: '100%', marginBottom: 15, alignItems: 'center' },
+  btnSecondary: { backgroundColor: '#FF9800', padding: 15, borderRadius: 8, width: '100%', alignItems: 'center' },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  header: { flexDirection: 'row', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#ddd' },
+  backBtn: { fontSize: 28, marginRight: 15, color: '#2196F3' },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+  formContainer: { padding: 20 },
+  label: { fontSize: 16, fontWeight: 'bold', marginBottom: 5, marginTop: 15, color: '#333' },
+  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 16 },
+  textArea: { height: 100, textAlignVertical: 'top' },
+  pickerBox: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd', borderRadius: 8, marginBottom: 15, overflow: 'hidden' },
+  statsBox: { backgroundColor: '#E3F2FD', padding: 15, margin: 15, borderRadius: 8, borderWidth: 1, borderColor: '#BBDEFB' },
+  statsTitle: { fontWeight: 'bold', fontSize: 16, marginBottom: 5, color: '#333' },
+  statsText: { color: '#666', marginBottom: 2 },
+  searchRow: { flexDirection: 'row', paddingHorizontal: 15, gap: 10, marginBottom: 10 },
+  searchInput: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#ddd' },
+  filterPicker: { flex: 1, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#ddd', overflow: 'hidden' },
+  emptyText: { fontSize: 18, fontWeight: 'bold', color: '#666' },
+  card: { backgroundColor: '#fff', marginHorizontal: 15, marginBottom: 15, padding: 15, borderRadius: 8, elevation: 2 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  cardPrice: { fontSize: 18, fontWeight: 'bold', color: '#2196F3' },
+  cardDesc: { color: '#666', marginBottom: 8 },
+  cardCourse: { fontWeight: 'bold', color: '#FF9800', marginBottom: 12 },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  editBtn: { flex: 1, backgroundColor: '#2196F3', padding: 10, borderRadius: 5, alignItems: 'center' },
+  deleteBtn: { flex: 1, backgroundColor: '#F44336', padding: 10, borderRadius: 5, alignItems: 'center' },
 });
